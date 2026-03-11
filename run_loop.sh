@@ -26,9 +26,9 @@ run_claude() {
   cd "$ROLE_DIR"
 
   if [ -z "$SESSION_ID" ]; then
-    RESPONSE=$(claude --print --dangerously-skip-permissions --output-format json "$PROMPT")
+    RESPONSE=$(claude --print --dangerously-skip-permissions --output-format json "$PROMPT") || return 1
   else
-    RESPONSE=$(claude --print --dangerously-skip-permissions --output-format json --resume "$SESSION_ID" "$PROMPT")
+    RESPONSE=$(claude --print --dangerously-skip-permissions --output-format json --resume "$SESSION_ID" "$PROMPT") || return 1
   fi
 
   echo "$RESPONSE" | jq -r '.result' 2>/dev/null || echo "$RESPONSE"
@@ -43,12 +43,12 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   echo "=== Iteration $ITERATION/$MAX_ITERATIONS ==="
 
   echo "[Planner] Planning improvements..."
-  PLANNER_OUTPUT=$(run_claude "$DIR/planner" "$PLANNER_SESSION" "Read ../problem.md and plan the required changes.")
+  PLANNER_OUTPUT=$(run_claude "$DIR/planner" "$PLANNER_SESSION" "Read ../problem.md and plan the required changes.") || { echo "Error: Planner failed. Aborting."; exit 1; }
   PLANNER_SESSION=$(echo "$PLANNER_OUTPUT" | tail -1)
   echo "$PLANNER_OUTPUT" | head -n -1
 
   echo "[Reviewer] Reviewing plan..."
-  REVIEWER_OUTPUT=$(run_claude "$DIR/reviewer" "$REVIEWER_SESSION" "Read ../problem.md and review the plan in ../plan.md. Write critique to ../critique.md.")
+  REVIEWER_OUTPUT=$(run_claude "$DIR/reviewer" "$REVIEWER_SESSION" "Read ../problem.md and review the plan in ../plan.md. Write critique to ../critique.md.") || { echo "Error: Reviewer failed. Aborting."; exit 1; }
   REVIEWER_SESSION=$(echo "$REVIEWER_OUTPUT" | tail -1)
   echo "$REVIEWER_OUTPUT" | head -n -1
 
