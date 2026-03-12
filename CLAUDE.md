@@ -1,23 +1,23 @@
-# Planner-Reviewer-Implementer Framework
+# Planner-Reviewer-Implementer
 
-A general-purpose iterative improvement loop using three Claude agents:
-- **Planner** — reads the problem and proposes changes (writes `plan.md`)
-- **Reviewer** — scores the plan against criteria (writes `critique.md`)
-- **Implementer** — applies the approved plan to target files
+This repo contains two implementations of the same Planner-Reviewer-Implementer loop pattern.
 
-## How to use
+## Implementations
 
-1. Fill in `problem.md` with your task description, files, rules, and 10 review criteria
-2. Run `./run_loop.sh`
-3. The loop iterates (max 5 rounds) until the reviewer scores 10/10, then auto-implements
+### `bash-orchestration/`
+Classic approach. A bash script spawns separate Claude Code CLI processes as agents. Agents communicate via flat files (`plan.md`, `critique.md`). Run from a plain terminal (not inside a Claude Code session).
 
-## File layout
+- Entry point: `bash-orchestration/run_loop.sh`
+- Requires: Claude Code CLI authenticated, `jq` installed
+- See `bash-orchestration/CLAUDE.md` for full details
 
-- `problem.md` — your problem definition (the only file you need to edit)
-- `plan.md` — generated plan (written by Planner, read by Reviewer and Implementer)
-- `critique.md` — generated critique (written by Reviewer, read by Planner)
-- `run_loop.sh` — orchestrator script
-- `implement.sh` — applies the approved plan
-- `planner/CLAUDE.md` — Planner agent instructions
-- `reviewer/CLAUDE.md` — Reviewer agent instructions
-- `examples/` — example problem definitions for reference
+### `agent-orchestration/`
+MoMa (Mother Agent) approach. A single Claude Code session acts as the orchestrator. It spawns Planner, Reviewer, and Implementer as subagents using the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed.
+
+- Entry point: open a Claude Code session with `agent-orchestration/` as working directory
+- Requires: Claude Code CLI authenticated
+- See `agent-orchestration/CLAUDE.md` for full details
+
+## Shared files
+
+- `Dockerfile` — sandbox container with all dependencies (recommended for bash-orchestration)
