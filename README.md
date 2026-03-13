@@ -106,3 +106,4 @@ problem.md
 ```
 
 MoMa holds all state in its context window. No files are written between agents unless context pressure requires it.
+
