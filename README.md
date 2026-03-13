@@ -5,35 +5,45 @@
 
 An iterative improvement loop using three Claude Code agents:
 
-1. **Planner** reads your problem definition and proposes changes (`plan.md`)
-2. **Reviewer** scores the plan against your criteria (`critique.md`)
+1. **Planner** reads your problem definition and proposes changes
+2. **Reviewer** scores the plan against your criteria
 3. **Implementer** applies the approved plan to your target files
 
 The loop runs up to 5 iterations until the reviewer scores 10/10, then auto-implements.
 
-## Requirements
+## Two implementations
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
-- `jq` installed (`apt install jq` / `brew install jq`)
+### `bash-orchestration/` — classic
+A bash script spawns Claude Code CLI processes as agents. Agents communicate via flat files (`plan.md`, `critique.md`). Run from a plain terminal (not inside a Claude Code session).
 
-> **Authenticate before first run.**
-> The script launches Claude Code as a subprocess. Run `claude` once interactively to complete authentication, then run `./run_loop.sh`.
+**Requirements:** Claude Code CLI authenticated, `jq` (`apt install jq` / `brew install jq`)
 
-> **Do not run from inside a Claude Code session.**
-> Claude Code blocks nested invocations. Run `run_loop.sh` from a plain terminal, not from within an active Claude Code session.
+> **Authenticate before first run.** Run `claude` once interactively to complete authentication, then run the loop script.
+
+> **Do not run from inside a Claude Code session.** Claude Code blocks nested invocations.
+
+### `agent-orchestration/` — MoMa (Mother Agent)
+A single Claude Code session acts as the orchestrator (MoMa). It spawns Planner, Reviewer, and Implementer as separate subagents via the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed.
+
+**Requirements:** Claude Code CLI authenticated
 
 ## Quick start
 
 ### Option A: Fill in `problem.md` yourself
 
-1. Edit `problem.md` with your task, files, constraints, and 10 review criteria
-2. Run `./run_loop.sh`
+For bash-orchestration:
+1. Edit `bash-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
+2. Run `bash bash-orchestration/run_loop.sh`
+
+For agent-orchestration (MoMa):
+1. Edit `agent-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
+2. Open a Claude Code session with `agent-orchestration/` as the working directory — MoMa starts automatically
 
 ### Option B: Let an agent help you set up
 
 Point Claude Code at this repo and ask it to read `CLAUDE.md` and help you fill in `problem.md`. It will ask you questions about your task, files, and what "good" looks like, then populate the template for you.
 
-## Running with Docker
+## Running with Docker (bash-orchestration)
 
 Build the image:
 
@@ -48,7 +58,7 @@ Create a named container, authenticate inside it, then run the loop — all in o
 docker run -it --name pri \
   -v "$(pwd)":/workspace \
   planner-reviewer-implementer \
-  bash -c "claude && bash run_loop.sh"
+  bash -c "claude && bash bash-orchestration/run_loop.sh"
 
 # Subsequent runs: restart the same container (credentials already stored inside)
 docker start -ai pri
@@ -60,21 +70,7 @@ docker start -ai pri
 > `--dangerously-skip-permissions`, making it vulnerable to prompt injection that could leak
 > credentials. Use a dedicated Claude account with minimal permissions for automation workloads.
 
-## File layout
-
-| File | Purpose |
-|------|---------|
-| `problem.md` | Your problem definition (the only file you edit) |
-| `plan.md` | Generated plan (written by Planner) |
-| `critique.md` | Generated critique (written by Reviewer) |
-| `run_loop.sh` | Orchestrator script |
-| `implement.sh` | Applies the approved plan |
-| `Dockerfile` | Container image with all dependencies |
-| `planner/CLAUDE.md` | Planner agent instructions |
-| `reviewer/CLAUDE.md` | Reviewer agent instructions |
-| `examples/` | Example problem definitions |
-
-## How it works
+## How bash-orchestration works
 
 ```
 problem.md
@@ -90,4 +86,23 @@ problem.md
           (applies plan to files)
 ```
 
-Each agent runs in its own subdirectory with a `CLAUDE.md` that scopes its permissions. The Planner can only write `plan.md`. The Reviewer can only write `critique.md`. The Implementer is the only agent that touches your target files.
+Each agent runs in its own subdirectory with a `CLAUDE.md` that scopes its permissions.
+
+## How agent-orchestration (MoMa) works
+
+```
+problem.md
+    |
+    v
+  [MoMa] --> spawns --> [Planner subagent] --> plan text (in context)
+    |                                               |
+    +---------> spawns --> [Reviewer subagent] <----+
+    |                           |
+    |                      score < 10? loop
+    |                           |
+    +---------> spawns --> [Implementer subagent]
+                               |
+                          target files modified
+```
+
+MoMa holds all state in its context window. No files are written between agents unless context pressure requires it.

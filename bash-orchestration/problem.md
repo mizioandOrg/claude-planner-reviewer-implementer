@@ -48,4 +48,3 @@ Define your task here. The planner, reviewer, and implementer agents all read th
 
 <!-- Any special steps needed after the plan is approved.
      e.g. "Run dotnet build && dotnet test" or "Run npm test" -->
-
