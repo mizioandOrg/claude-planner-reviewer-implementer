@@ -36,8 +36,13 @@ For bash-orchestration:
 2. Run `bash bash-orchestration/run_loop.sh`
 
 For agent-orchestration (MoMa):
-1. Edit `agent-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
-2. Open a Claude Code session with `agent-orchestration/` as the working directory — MoMa starts automatically
+1. Edit `agent-orchestration/problem.md` with your task, files, constraints, and 10 review criteria — or leave it blank and MoMa will run a setup wizard
+2. Open a Claude Code session in `agent-orchestration/`:
+   ```bash
+   cd agent-orchestration
+   claude --dangerously-skip-permissions
+   ```
+   MoMa starts automatically. Subagents inherit permissions from the parent session — no flag needed per subagent.
 
 ### Option B: Let an agent help you set up
 
