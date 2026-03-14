@@ -11,7 +11,7 @@ The loop runs up to 5 iterations until the reviewer scores 10/10, then auto-impl
 ## Two implementations
 
 ### `agent-orchestration/` — MoMa (Mother Agent)
-A single Claude Code session acts as the orchestrator (MoMa). It spawns Planner, Reviewer, and Implementer as separate subagents via the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed. Runs safely in interactive mode — `--dangerously-skip-permissions` is optional.
+A single Claude Code session acts as the orchestrator (MoMa). It spawns Planner, Reviewer, and Implementer as separate subagents via the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed. No `--dangerously-skip-permissions` needed for normal use — it's an opt-in for sandboxed environments.
 
 **Requirements:** Claude Code CLI authenticated
 
@@ -37,13 +37,14 @@ For agent-orchestration (MoMa):
    cd agent-orchestration
    claude
    ```
-   MoMa starts automatically and will ask for permission before each subagent spawn and tool call.
+   MoMa starts automatically. In interactive mode, you'll be prompted to approve agent spawns and tool calls.
+
+   Subagents inherit permissions from the parent session — no flag needed per subagent.
 
    To skip all permission prompts (recommended in sandboxed environments only):
    ```bash
    claude --dangerously-skip-permissions
    ```
-   Subagents inherit permissions from the parent session — no flag needed per subagent.
 
 For bash-orchestration:
 1. Edit `bash-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
