@@ -1,8 +1,5 @@
 # Planner-Reviewer-Implementer
 
-> **Run this in a sandbox.**
-> This framework executes Claude Code agents with `--dangerously-skip-permissions` against files in your project. It is designed to run inside an isolated environment (container, VM, or CI sandbox) — not directly on your personal machine or production system.
-
 An iterative improvement loop using three Claude Code agents:
 
 1. **Planner** reads your problem definition and proposes changes
@@ -13,8 +10,15 @@ The loop runs up to 5 iterations until the reviewer scores 10/10, then auto-impl
 
 ## Two implementations
 
+### `agent-orchestration/` — MoMa (Mother Agent)
+A single Claude Code session acts as the orchestrator (MoMa). It spawns Planner, Reviewer, and Implementer as separate subagents via the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed. No `--dangerously-skip-permissions` needed for normal use — it's an opt-in for sandboxed environments.
+
+**Requirements:** Claude Code CLI authenticated
+
 ### `bash-orchestration/` — classic
 A bash script spawns Claude Code CLI processes as agents. Agents communicate via flat files (`plan.md`, `critique.md`). Run from a plain terminal (not inside a Claude Code session).
+
+> **Run in a sandbox.** This orchestrator uses `--dangerously-skip-permissions` and should run inside an isolated environment (container, VM, or CI sandbox) — not directly on your personal machine or production system.
 
 **Requirements:** Claude Code CLI authenticated, `jq` (`apt install jq` / `brew install jq`)
 
@@ -22,31 +26,70 @@ A bash script spawns Claude Code CLI processes as agents. Agents communicate via
 
 > **Do not run from inside a Claude Code session.** Claude Code blocks nested invocations.
 
-### `agent-orchestration/` — MoMa (Mother Agent)
-A single Claude Code session acts as the orchestrator (MoMa). It spawns Planner, Reviewer, and Implementer as separate subagents via the `Agent` tool. Context is passed directly via a shared `team_log` — no inter-agent files needed.
-
-**Requirements:** Claude Code CLI authenticated
-
 ## Quick start
 
 ### Option A: Fill in `problem.md` yourself
-
-For bash-orchestration:
-1. Edit `bash-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
-2. Run `bash bash-orchestration/run_loop.sh`
 
 For agent-orchestration (MoMa):
 1. Edit `agent-orchestration/problem.md` with your task, files, constraints, and 10 review criteria — or leave it blank and MoMa will run a setup wizard
 2. Open a Claude Code session in `agent-orchestration/`:
    ```bash
    cd agent-orchestration
+   claude
+   ```
+   MoMa starts automatically. In interactive mode, you'll be prompted to approve agent spawns and tool calls.
+
+   Subagents inherit permissions from the parent session — no flag needed per subagent.
+
+   To skip all permission prompts (recommended in sandboxed environments only):
+   ```bash
    claude --dangerously-skip-permissions
    ```
-   MoMa starts automatically. Subagents inherit permissions from the parent session — no flag needed per subagent.
+
+For bash-orchestration:
+1. Edit `bash-orchestration/problem.md` with your task, files, constraints, and 10 review criteria
+2. Run `bash bash-orchestration/run_loop.sh`
 
 ### Option B: Let an agent help you set up
 
 Point Claude Code at this repo and ask it to read `CLAUDE.md` and help you fill in `problem.md`. It will ask you questions about your task, files, and what "good" looks like, then populate the template for you.
+
+## How agent-orchestration (MoMa) works
+
+```
+problem.md
+    |
+    v
+  [MoMa] --> spawns --> [Planner subagent] --> plan text (in context)
+    |                                               |
+    +---------> spawns --> [Reviewer subagent] <----+
+    |                           |
+    |                      score < 10? loop
+    |                           |
+    +---------> spawns --> [Implementer subagent]
+                               |
+                          target files modified
+```
+
+MoMa holds all state in its context window. No files are written between agents unless context pressure requires it.
+
+## How bash-orchestration works
+
+```
+problem.md
+    |
+    v
+[Planner] --> plan.md --> [Reviewer] --> critique.md
+    ^                                        |
+    |________________________________________|
+              (loop until 10/10)
+                     |
+                     v
+              [Implementer]
+          (applies plan to files)
+```
+
+Each agent runs in its own subdirectory with a `CLAUDE.md` that scopes its permissions.
 
 ## Running with Docker (bash-orchestration)
 
@@ -74,41 +117,3 @@ docker start -ai pri
 > `~/.claude` directory. The script processes untrusted file content using
 > `--dangerously-skip-permissions`, making it vulnerable to prompt injection that could leak
 > credentials. Use a dedicated Claude account with minimal permissions for automation workloads.
-
-## How bash-orchestration works
-
-```
-problem.md
-    |
-    v
-[Planner] --> plan.md --> [Reviewer] --> critique.md
-    ^                                        |
-    |________________________________________|
-              (loop until 10/10)
-                     |
-                     v
-              [Implementer]
-          (applies plan to files)
-```
-
-Each agent runs in its own subdirectory with a `CLAUDE.md` that scopes its permissions.
-
-## How agent-orchestration (MoMa) works
-
-```
-problem.md
-    |
-    v
-  [MoMa] --> spawns --> [Planner subagent] --> plan text (in context)
-    |                                               |
-    +---------> spawns --> [Reviewer subagent] <----+
-    |                           |
-    |                      score < 10? loop
-    |                           |
-    +---------> spawns --> [Implementer subagent]
-                               |
-                          target files modified
-```
-
-MoMa holds all state in its context window. No files are written between agents unless context pressure requires it.
-
